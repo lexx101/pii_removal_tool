@@ -1,5 +1,5 @@
 from flask import Flask, render_template_string, request, jsonify
-from presidio_analyzer import AnalyzerEngine, RecognizerRegistry, RecognizerResult
+from presidio_analyzer import AnalyzerEngine, RecognizerRegistry, RecognizerResult, Pattern, PatternRecognizer
 from presidio_analyzer.predefined_recognizers import AuTfnRecognizer, AuAbnRecognizer, AuAcnRecognizer, AuMedicareRecognizer, PhoneRecognizer
 from presidio_anonymizer import AnonymizerEngine
 import json
@@ -31,9 +31,33 @@ registry.add_recognizer(AuAbnRecognizer())
 registry.add_recognizer(AuAcnRecognizer())
 registry.add_recognizer(AuMedicareRecognizer())
 
-# Add Australian phone number support using phonenumbers library
-au_phone_recognizer = PhoneRecognizer(supported_regions=["AU"])
+# Add Australian phone number support using phonenumbers library with context
+au_phone_recognizer = PhoneRecognizer(
+    supported_regions=["AU"],
+    context=[
+        "phone", "telephone", "mobile", "mob", "landline", "office", "work",
+        "business", "direct", "desk", "switchboard", "reception", "extension",
+        "ext", "ex", "home", "residential", "personal", "contact", "contact no",
+        "contact number", "after hours", "a/h", "hotline", "duty phone",
+        "helpdesk", "support", "service desk", "enquiries", "inquiries",
+        "p", "p.", "ph", "ph.", "m", "m.", "mob.", "t", "t.", "p:", "m:", "t:",
+        "h", "h.", "w:", "h:", "sms", "text", "+61", "intl", "intl.", "international"
+    ]
+)
 registry.add_recognizer(au_phone_recognizer)
+
+# Add @Name mention recognizer (handles @FirstName or @FirstName LastName)
+at_mention_pattern = Pattern(
+    name="at_mention_pattern",
+    regex=r"@([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+    score=0.7
+)
+at_mention_recognizer = PatternRecognizer(
+    supported_entity="PERSON",
+    name="at_mention_recognizer",
+    patterns=[at_mention_pattern]
+)
+registry.add_recognizer(at_mention_recognizer)
 
 analyzer = AnalyzerEngine(registry=registry)
 anonymizer = AnonymizerEngine()
