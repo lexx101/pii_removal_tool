@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  pii-removal-tool:
+    build: .
+    container_name: pii-removal-tool
+    ports:
+      - "5000:5000"
+    environment:
+      - DEBUG=False
+      - PORT=5000
+      - LOG_LEVEL=INFO
+    volumes:
+      # Mount data directory to persist PII mappings
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
