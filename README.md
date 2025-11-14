@@ -326,20 +326,24 @@ docker-compose up -d
 
 ```
 pii_removal_tool/
-├── app.py                 # Main application
-├── config.py              # Configuration management
-├── wsgi.py               # WSGI entry point
-├── requirements.txt      # Python dependencies
-├── Dockerfile           # Docker configuration
-├── docker-compose.yml   # Docker Compose configuration
-├── .env.example         # Environment variables template
-├── .gitignore          # Git ignore rules
-├── README.md           # This file
-└── data/               # Data directory (JSON files)
+├── app.py                      # Main application
+├── config.py                   # Configuration management
+├── wsgi.py                     # WSGI entry point
+├── requirements.txt            # Python dependencies
+├── requirements-dev.txt        # Development dependencies
+├── test_app_unittest.py        # Unittest test suite
+├── test_app.py                 # Pytest test suite
+├── Dockerfile                  # Docker configuration
+├── docker-compose.yml          # Docker Compose configuration
+├── .env.example                # Environment variables template
+├── .gitignore                  # Git ignore rules
+├── README.md                   # This file
+├── TESTING.md                  # Testing documentation
+└── data/                       # Data directory (JSON files)
     ├── .gitkeep
-    ├── pii_mappings.json      # Auto-generated
-    ├── custom_names.json      # Optional
-    └── ignore_list.json       # Optional
+    ├── pii_mappings.json       # Auto-generated
+    ├── custom_names.json       # Optional
+    └── ignore_list.json        # Optional
 ```
 
 ## Security Considerations
@@ -407,13 +411,47 @@ docker system prune -a
 docker-compose build --no-cache
 ```
 
+## Testing
+
+The project includes a comprehensive test suite with 23+ test cases covering all functionality.
+
+### Running Tests
+
+```bash
+# Using unittest (recommended, no extra dependencies)
+python test_app_unittest.py --summary
+
+# Or with verbose output
+python -m unittest test_app_unittest -v
+
+# Using pytest (if installed)
+pytest test_app.py -v
+```
+
+### Test Coverage
+
+The test suite covers:
+- ✅ JSON file operations and data persistence
+- ✅ PII mapping functions for de-identification
+- ✅ Post-processing and entity detection
+- ✅ Anonymization and de-identification
+- ✅ Re-identification and mapping restoration
+- ✅ Flask API endpoints
+- ✅ Edge cases and special characters
+- ✅ Australian-specific PII detection
+- ✅ @mention name recognition
+- ✅ Custom names and ignore lists
+
+For detailed testing documentation, see [TESTING.md](TESTING.md).
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+4. **Run tests**: `python test_app_unittest.py --summary`
+5. Add tests for new features
+6. Submit a pull request
 
 ## License
 
