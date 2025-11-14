@@ -21,46 +21,61 @@ app.config.from_object(Config)
 # Ensure data directory exists
 os.makedirs(app.config['DATA_DIR'], exist_ok=True)
 
-# Initialize Presidio with Australian recognizers
-registry = RecognizerRegistry()
-registry.load_predefined_recognizers()
+# Lazy initialization to avoid import-time dependencies
+_analyzer = None
+_anonymizer = None
 
-# Add Australian tax/business number recognizers
-registry.add_recognizer(AuTfnRecognizer())
-registry.add_recognizer(AuAbnRecognizer())
-registry.add_recognizer(AuAcnRecognizer())
-registry.add_recognizer(AuMedicareRecognizer())
+def get_analyzer():
+    """Lazy initialization of Presidio analyzer."""
+    global _analyzer
+    if _analyzer is None:
+        # Initialize Presidio with Australian recognizers
+        registry = RecognizerRegistry()
+        registry.load_predefined_recognizers()
 
-# Add Australian phone number support using phonenumbers library with context
-au_phone_recognizer = PhoneRecognizer(
-    supported_regions=["AU"],
-    context=[
-        "phone", "telephone", "mobile", "mob", "landline", "office", "work",
-        "business", "direct", "desk", "switchboard", "reception", "extension",
-        "ext", "ex", "home", "residential", "personal", "contact", "contact no",
-        "contact number", "after hours", "a/h", "hotline", "duty phone",
-        "helpdesk", "support", "service desk", "enquiries", "inquiries",
-        "p", "p.", "ph", "ph.", "m", "m.", "mob.", "t", "t.", "p:", "m:", "t:",
-        "h", "h.", "w:", "h:", "sms", "text", "+61", "intl", "intl.", "international"
-    ]
-)
-registry.add_recognizer(au_phone_recognizer)
+        # Add Australian tax/business number recognizers
+        registry.add_recognizer(AuTfnRecognizer())
+        registry.add_recognizer(AuAbnRecognizer())
+        registry.add_recognizer(AuAcnRecognizer())
+        registry.add_recognizer(AuMedicareRecognizer())
 
-# Add @Name mention recognizer (handles @FirstName or @FirstName LastName)
-at_mention_pattern = Pattern(
-    name="at_mention_pattern",
-    regex=r"@([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
-    score=0.7
-)
-at_mention_recognizer = PatternRecognizer(
-    supported_entity="PERSON",
-    name="at_mention_recognizer",
-    patterns=[at_mention_pattern]
-)
-registry.add_recognizer(at_mention_recognizer)
+        # Add Australian phone number support using phonenumbers library with context
+        au_phone_recognizer = PhoneRecognizer(
+            supported_regions=["AU"],
+            context=[
+                "phone", "telephone", "mobile", "mob", "landline", "office", "work",
+                "business", "direct", "desk", "switchboard", "reception", "extension",
+                "ext", "ex", "home", "residential", "personal", "contact", "contact no",
+                "contact number", "after hours", "a/h", "hotline", "duty phone",
+                "helpdesk", "support", "service desk", "enquiries", "inquiries",
+                "p", "p.", "ph", "ph.", "m", "m.", "mob.", "t", "t.", "p:", "m:", "t:",
+                "h", "h.", "w:", "h:", "sms", "text", "+61", "intl", "intl.", "international"
+            ]
+        )
+        registry.add_recognizer(au_phone_recognizer)
 
-analyzer = AnalyzerEngine(registry=registry)
-anonymizer = AnonymizerEngine()
+        # Add @Name mention recognizer (handles @FirstName or @FirstName LastName)
+        at_mention_pattern = Pattern(
+            name="at_mention_pattern",
+            regex=r"@([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+            score=0.7
+        )
+        at_mention_recognizer = PatternRecognizer(
+            supported_entity="PERSON",
+            name="at_mention_recognizer",
+            patterns=[at_mention_pattern]
+        )
+        registry.add_recognizer(at_mention_recognizer)
+
+        _analyzer = AnalyzerEngine(registry=registry)
+    return _analyzer
+
+def get_anonymizer():
+    """Lazy initialization of Presidio anonymizer."""
+    global _anonymizer
+    if _anonymizer is None:
+        _anonymizer = AnonymizerEngine()
+    return _anonymizer
 
 # Storage files
 MAPPING_FILE = os.path.join(app.config['DATA_DIR'], "pii_mappings.json")
@@ -245,7 +260,7 @@ def filter_by_entity_types(results, enabled_entities):
 
 def anonymize_text(text, threshold=0.5, enabled_entities=None):
     """Anonymize text by replacing PII with generic placeholders."""
-    results = analyzer.analyze(text=text, language='en', score_threshold=threshold)
+    results = get_analyzer().analyze(text=text, language='en', score_threshold=threshold)
 
     # Apply filters and enhancements
     results = filter_by_entity_types(results, enabled_entities)
@@ -254,12 +269,12 @@ def anonymize_text(text, threshold=0.5, enabled_entities=None):
     results = post_process_lastname_firstname(text, results)
     results = merge_adjacent_persons(text, results)
 
-    anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
+    anonymized = get_anonymizer().anonymize(text=text, analyzer_results=results)
     return anonymized.text, len(results)
 
 def deidentify_text(text, threshold=0.5, enabled_entities=None):
     """De-identify text by replacing PII with reversible placeholders."""
-    results = analyzer.analyze(text=text, language='en', score_threshold=threshold)
+    results = get_analyzer().analyze(text=text, language='en', score_threshold=threshold)
 
     # Apply filters and enhancements
     results = filter_by_entity_types(results, enabled_entities)
